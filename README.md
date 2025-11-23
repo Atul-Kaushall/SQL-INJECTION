@@ -23,7 +23,6 @@ _Secure Login Example:_
 _Attack Example:_
 ![SQLi Attack Example]⬇️
 
-*(Update the image filenames above with your actual screenshot file names.)*
 
 ## How To Use
 
