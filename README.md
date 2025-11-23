@@ -31,6 +31,10 @@ This project contains two PHP login scripts:
 
 - PHP
 - MySQL
+- Java
+- servlets
+- webintegration
+
 
 ## Disclaimer
 
