@@ -12,16 +12,6 @@ This project contains two PHP login scripts:
 - **login_demo.php**: Demonstrates a basic login system with intentional SQLi vulnerability.
 - **login_demo_secure.php**: Secure version using prepared statements and input validation to prevent SQLi.
 
-## Screenshots⬇️
-
-_Vulnerable Login Example:_
-![Vulnerable Login Form]⬇️
-
-_Secure Login Example:_
-![Secure Login Form]⬇️
-
-_Attack Example:_
-![SQLi Attack Example]⬇️
 
 
 ## How To Use
@@ -47,6 +37,16 @@ _Attack Example:_
 This project is for educational purposes only. Do not use insecure code in any live, production environment.
 
 ---
+## Screenshots⬇️
+
+_Vulnerable Login Example:_
+![Vulnerable Login Form]⬇️
+
+_Secure Login Example:_
+![Secure Login Form]⬇️
+
+_Attack Example:_
+![SQLi Attack Example]⬇️
 
 
 
