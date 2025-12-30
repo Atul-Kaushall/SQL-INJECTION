@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time-based Blind SQL Injection Demo</title>
+    <style>
+        :root {
+            --primary-color: #00d9ff;
+            --secondary-color: #0066ff;
+            --danger-color: #ff3366;
+            --success-color: #00ff88;
+            --warning-color: #ffaa00;
+            --dark-bg: #0a0e1a;
+            --darker-bg: #050810;
+            --card-bg: rgba(15, 23, 42, 0.8);
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--dark-bg) 0%, var(--darker-bg) 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 1024px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(0, 217, 255, 0.3);
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .card h2 {
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            border-bottom: 2px solid rgba(0, 217, 255, 0.2);
+            padding-bottom: 15px;
+        }
+
+        .card.vulnerable h2 {
+            color: var(--danger-color);
+            border-bottom-color: rgba(255, 51, 102, 0.2);
+        }
+
+        .card.secure h2 {
+            color: var(--success-color);
+            border-bottom-color: rgba(0, 255, 136, 0.2);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 2px solid rgba(0, 217, 255, 0.2);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 15px rgba(0, 217, 255, 0.2);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger-color), #ff6666);
+            color: white;
+            box-shadow: 0 5px 20px rgba(255, 51, 102, 0.3);
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(255, 51, 102, 0.5);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--success-color), #00dd77);
+            color: black;
+            box-shadow: 0 5px 20px rgba(0, 255, 136, 0.3);
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0, 255, 136, 0.5);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .result-box {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(0, 217, 255, 0.2);
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .result-box.show {
+            display: block;
+        }
+
+        .result-label {
+            color: var(--warning-color);
+            font-weight: 600;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+
+        .result-content {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+            color: var(--success-color);
+            line-height: 1.4;
+        }
+
+        .timing-bar {
+            width: 100%;
+            height: 30px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            overflow: hidden;
+            margin-top: 10px;
+            border: 1px solid rgba(0, 217, 255, 0.2);
+        }
+
+        .timing-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--success-color), var(--warning-color));
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: black;
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+
+        .timing-text {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-top: 8px;
+        }
+
+        .example-list {
+            background: rgba(255, 170, 0, 0.1);
+            border-left: 4px solid var(--warning-color);
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+
+        .example-list h4 {
+            color: var(--warning-color);
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+        }
+
+        .example-item {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            margin: 8px 0;
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            word-break: break-all;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .explanation {
+            background: rgba(0, 217, 255, 0.1);
+            border: 1px solid rgba(0, 217, 255, 0.2);
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .explanation h3 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+
+        .explanation p {
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+
+        .vulnerability-badge {
+            display: inline-block;
+            background: rgba(255, 51, 102, 0.2);
+            border: 1px solid var(--danger-color);
+            color: var(--danger-color);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .security-badge {
+            display: inline-block;
+            background: rgba(0, 255, 136, 0.2);
+            border: 1px solid var(--success-color);
+            color: var(--success-color);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .progress-indicator {
+            display: flex;
+            gap: 5px;
+            margin: 10px 0;
+        }
+
+        .progress-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(0, 217, 255, 0.3);
+            animation: pulse 1s infinite;
+        }
+
+        .progress-dot.active {
+            background: var(--primary-color);
+            box-shadow: 0 0 10px var(--primary-color);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid rgba(0, 217, 255, 0.2);
+            color: var(--text-primary);
+        }
+
+        th {
+            background: rgba(0, 217, 255, 0.1);
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        .status-success {
+            color: var(--success-color);
+        }
+
+        .status-fail {
+            color: var(--danger-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⏱️ Time-based Blind SQL Injection Demo</h1>
+            <p>Learn how attackers extract data using response time analysis</p>
+        </div>
+
+        <div class="grid">
+            <!-- VULNERABLE VERSION -->
+            <div class="card vulnerable">
+                <div class="vulnerability-badge">⚠️ VULNERABLE CODE</div>
+                <h2>Vulnerable Login Check</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    This function delays response if condition is true.
+                </p>
+
+                <div class="form-group">
+                    <label>👤 Username:</label>
+                    <input type="text" id="vulnUsername" placeholder="Try: admin" autocomplete="off">
+                </div>
+
+                <div class="form-group">
+                    <label>🔑 Password:</label>
+                    <input type="text" id="vulnPassword" placeholder="Any text..." autocomplete="off">
+                </div>
+
+                <button class="btn btn-danger" id="vulnBtn" onclick="testVulnerable()">
+                    💉 Execute Vulnerable Query
+                </button>
+
+                <div class="result-box" id="vulnResults">
+                    <div class="result-label">📝 SQL Query Executed:</div>
+                    <div class="result-content" id="vulnQuery"></div>
+                    
+                    <div class="result-label" style="margin-top: 15px;">⏱️ Response Time Analysis:</div>
+                    <div class="timing-bar">
+                        <div class="timing-fill" id="vulnTiming" style="width: 0%;">
+                            <span id="vulnTimingText">0ms</span>
+                        </div>
+                    </div>
+                    <div class="timing-text" id="vulnAnalysis"></div>
+                </div>
+
+                <div class="example-list">
+                    <h4>🎯 Time-based Blind Payloads:</h4>
+                    <div class="example-item">
+                        admin' AND SLEEP(5) --
+                    </div>
+                    <div class="example-item">
+                        admin' AND IF(1=1,SLEEP(5),0) --
+                    </div>
+                    <div class="example-item">
+                        admin' AND IF(SUBSTRING(password,1,1)='a',SLEEP(5),0) --
+                    </div>
+                    <div class="example-item">
+                        ' OR IF(1=1,SLEEP(5),0) --
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECURE VERSION -->
+            <div class="card secure">
+                <div class="security-badge">✅ SECURE CODE</div>
+                <h2>Secure Login Check</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    Uses prepared statements with consistent response times.
+                </p>
+
+                <div class="form-group">
+                    <label>👤 Username:</label>
+                    <input type="text" id="secureUsername" placeholder="Try: admin" autocomplete="off">
+                </div>
+
+                <div class="form-group">
+                    <label>🔑 Password:</label>
+                    <input type="text" id="securePassword" placeholder="Any text..." autocomplete="off">
+                </div>
+
+                <button class="btn btn-success" id="secureBtn" onclick="testSecure()">
+                    ✅ Execute Secure Query
+                </button>
+
+                <div class="result-box" id="secureResults">
+                    <div class="result-label">📝 SQL Query Pattern:</div>
+                    <div class="result-content" id="secureQuery"></div>
+                    
+                    <div class="result-label" style="margin-top: 15px;">⏱️ Response Time (Constant):</div>
+                    <div class="timing-bar">
+                        <div class="timing-fill" id="secureTiming" style="width: 50%; background: linear-gradient(90deg, #00dd77, #00dd77);">
+                            <span id="secureTimingText">50-60ms</span>
+                        </div>
+                    </div>
+                    <div class="timing-text" style="color: var(--success-color);">✓ Consistent response time regardless of data</div>
+                </div>
+
+                <div class="explanation">
+                    <h3>🛡️ Protection Method:</h3>
+                    <p>✓ Parameterized query - user data cannot affect timing</p>
+                    <p>✓ No conditional delays based on data</p>
+                    <p>✓ Constant response time for all inputs</p>
+                    <p>✓ Data treated as literal strings</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- EDUCATION SECTION -->
+        <div class="card full-width" style="border-color: rgba(255, 170, 0, 0.3);">
+            <h2 style="color: var(--warning-color); border-bottom-color: rgba(255, 170, 0, 0.2);">
+                📚 How Time-based Blind SQL Injection Works
+            </h2>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div>
+                    <h3 style="color: var(--danger-color); margin-bottom: 15px;">❌ Vulnerable Code (PHP):</h3>
+                    <pre style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; overflow-x: auto; color: #00ff88; font-size: 0.8rem; line-height: 1.3;">$user = $_POST['username'];
+$pwd = $_POST['password'];
+
+$sql = "SELECT * FROM users WHERE 
+        username='$user' AND 
+        password='$pwd'";
+        
+$result = mysqli_query($con, $sql);
+
+if($result && mysqli_num_rows($result) > 0) {
+    echo "Login Success";
+}</pre>
+                </div>
+
+                <div>
+                    <h3 style="color: var(--success-color); margin-bottom: 15px;">✅ Secure Code (PHP):</h3>
+                    <pre style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; overflow-x: auto; color: #00ff88; font-size: 0.8rem; line-height: 1.3;">$user = $_POST['username'];
+$pwd = $_POST['password'];
+
+$sql = "SELECT * FROM users WHERE 
+        username=? AND password=?";
+        
+$stmt = $con->prepare($sql);
+$stmt->bind_param("ss", $user, $pwd);
+$stmt->execute();
+$result = $stmt->get_result();
+
+if($result->num_rows > 0) {
+    echo "Login Success";
+}</pre>
+                </div>
+            </div>
+
+            <h3 style="color: var(--primary-color); margin-top: 25px; margin-bottom: 15px;">🔍 Attack Mechanism:</h3>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Payload</th>
+                        <th>What It Does</th>
+                        <th>Response Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>admin' OR '1'='1</td>
+                        <td>Simple SQL injection (fast fail with output-based)</td>
+                        <td>~10ms</td>
+                    </tr>
+                    <tr>
+                        <td>admin' AND SLEEP(5) --</td>
+                        <td>Sleeps 5 seconds if admin user exists</td>
+                        <td class="status-success">~5000ms ✓</td>
+                    </tr>
+                    <tr>
+                        <td>admin' AND IF(1=1,SLEEP(5),0) --</td>
+                        <td>Conditional sleep - tests boolean condition</td>
+                        <td class="status-success">~5000ms (true)</td>
+                    </tr>
+                    <tr>
+                        <td>admin' AND IF(SUBSTRING(password,1,1)='a',SLEEP(5),0) --</td>
+                        <td>Extract password character by character</td>
+                        <td class="status-success">~5000ms (if 'a')</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div style="background: rgba(0, 217, 255, 0.1); border: 1px solid rgba(0, 217, 255, 0.2); border-radius: 8px; padding: 20px; margin-top: 20px;">
+                <h3 style="color: var(--primary-color); margin-bottom: 10px;">🎓 Key Concepts:</h3>
+                <ul style="color: var(--text-secondary); line-height: 2; margin-left: 20px;">
+                    <li><strong>"Blind" Injection:</strong> No error messages or data displayed to attacker</li>
+                    <li><strong>Time-based Technique:</strong> Uses SLEEP() or BENCHMARK() to measure response delays</li>
+                    <li><strong>Binary Search:</strong> Attackers test each character of sensitive data</li>
+                    <li><strong>Slow Attack:</strong> May take hours to extract all data due to character-by-character extraction</li>
+                    <li><strong>Detection:</strong> Monitor for unusual delays and abnormal query patterns</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- ATTACK SIMULATION -->
+        <div class="card full-width">
+            <h2 style="color: var(--warning-color);">
+                🧪 Interactive Attack Simulation
+            </h2>
+
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                This demonstrates how an attacker would extract the first letter of the admin password using binary search.
+            </p>
+
+            <div class="form-group">
+                <label>Target Character Position:</label>
+                <input type="number" id="charPosition" min="1" max="10" value="1" placeholder="1">
+            </div>
+
+            <button class="btn btn-danger" onclick="extractCharacter()" style="margin-bottom: 20px;">
+                💉 Extract Character (Binary Search)
+            </button>
+
+            <div class="result-box" id="simulationResults">
+                <div class="result-label">🔍 Extraction Progress:</div>
+                <div id="extractionLog" class="result-content"></div>
+            </div>
+        </div>
+
+        <!-- COUNTERMEASURES -->
+        <div class="card full-width" style="border-color: rgba(0, 255, 136, 0.3);">
+            <h2 style="color: var(--success-color); border-bottom-color: rgba(0, 255, 136, 0.2);">
+                🛡️ Security Countermeasures
+            </h2>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div>
+                    <h3 style="color: var(--success-color); margin-bottom: 15px;">✅ Technical Defenses</h3>
+                    <ul style="color: var(--text-secondary); line-height: 2;">
+                        <li>Use prepared statements & parameterized queries</li>
+                        <li>Implement input validation & type checking</li>
+                        <li>Use ORM frameworks (Doctrine, Eloquent)</li>
+                        <li>Hash passwords with bcrypt/Argon2</li>
+                        <li>Implement rate limiting on login attempts</li>
+                        <li>Use Web Application Firewall (WAF)</li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 style="color: var(--success-color); margin-bottom: 15px;">📊 Detection & Monitoring</h3>
+                    <ul style="color: var(--text-secondary); line-height: 2;">
+                        <li>Monitor response time anomalies</li>
+                        <li>Log and alert on unusual query patterns</li>
+                        <li>Track multiple failed login attempts</li>
+                        <li>Use IDS/IPS systems</li>
+                        <li>Enable query logging in database</li>
+                        <li>Implement SIEM for centralized monitoring</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simulated user database
+        const users = {
+            'admin': 'adminpass123',
+            'user1': 'password456',
+            'user2': 'securepass789'
+        };
+
+        function testVulnerable() {
+            const username = document.getElementById('vulnUsername').value;
+            const password = document.getElementById('vulnPassword').value;
+
+            if (!username) {
+                alert('Please enter a username');
+                return;
+            }
+
+            // Build vulnerable query
+            const query = `SELECT * FROM users WHERE username='${username}' AND password='${password}'`;
+            
+            const startTime = performance.now();
+            
+            // Simulate database delay based on injection
+            let delay = 10; // base delay
+            
+            if (username.includes("SLEEP") || password.includes("SLEEP")) {
+                delay = 5000; // 5 second sleep
+            } else if (username.includes("IF")) {
+                delay = 3000;
+            }
+
+            // Simulate async query execution
+            document.getElementById('vulnBtn').disabled = true;
+            setTimeout(() => {
+                const endTime = performance.now();
+                const responseTime = Math.round(endTime - startTime);
+
+                document.getElementById('vulnQuery').textContent = query;
+                const timingPercentage = Math.min((responseTime / 6000) * 100, 100);
+                document.getElementById('vulnTiming').style.width = timingPercentage + '%';
+                document.getElementById('vulnTimingText').textContent = responseTime + 'ms';
+
+                let analysis = '';
+                if (responseTime > 4000) {
+                    analysis = '⚠️ LONG DELAY DETECTED! Query condition was TRUE - attacker can confirm data!';
+                } else {
+                    analysis = '✓ Quick response - condition was likely FALSE';
+                }
+
+                document.getElementById('vulnAnalysis').innerHTML = analysis + '<br>Response: ' + responseTime + 'ms';
+                document.getElementById('vulnResults').classList.add('show');
+                document.getElementById('vulnBtn').disabled = false;
+            }, delay);
+        }
+
+        function testSecure() {
+            const username = document.getElementById('secureUsername').value;
+            const password = document.getElementById('securePassword').value;
+
+            if (!username) {
+                alert('Please enter a username');
+                return;
+            }
+
+            const query = `SELECT * FROM users WHERE username=? AND password=?`;
+            const params = `Parameters: ["${username}", "${password}"]`;
+
+            const startTime = performance.now();
+            
+            // Secure version always has consistent response time
+            const constantDelay = 50 + Math.random() * 20; // 50-70ms regardless of input
+
+            document.getElementById('secureBtn').disabled = true;
+            setTimeout(() => {
+                const endTime = performance.now();
+                const responseTime = Math.round(endTime - startTime);
+
+                const display = query + '\n\n' + params + '\n\nNo SQL injection possible - parameters are safely separated from logic.';
+                document.getElementById('secureQuery').textContent = display;
+                
+                document.getElementById('secureResults').classList.add('show');
+                document.getElementById('secureBtn').disabled = false;
+            }, constantDelay);
+        }
+
+        function extractCharacter() {
+            const position = parseInt(document.getElementById('charPosition').value);
+            let log = '<strong>Binary Search Character Extraction</strong><br><strong>Position ' + position + ':</strong><br><br>';
+
+            // Simulate binary search through ASCII values (97-122 for a-z)
+            const targetPassword = users['admin'];
+            const targetChar = targetPassword.charAt(position - 1);
+            const targetCode = targetChar.charCodeAt(0);
+
+            let searchLog = '';
+            let low = 97, high = 122;
+            let guesses = 0;
+
+            while (low <= high && guesses < 10) {
+                const mid = Math.floor((low + high) / 2);
+                const char = String.fromCharCode(mid);
+                guesses++;
+
+                const payload = `admin' AND IF(SUBSTRING(password,${position},1)>'${char}',SLEEP(5),0) --`;
+                
+                let result = '';
+                if (targetCode > mid) {
+                    result = '⏱️ DELAYED (5000ms) - Character is HIGHER than ' + char;
+                    low = mid + 1;
+                } else {
+                    result = '✓ QUICK (10ms) - Character is LOWER or EQUAL to ' + char;
+                    high = mid - 1;
+                }
+
+                searchLog += `<strong>Guess ${guesses}:</strong> Payload: ${payload}<br>`;
+                searchLog += `→ Result: ${result}<br><br>`;
+            }
+
+            searchLog += `<strong style="color: var(--success-color);">✓ Found Character: '${targetChar}'</strong><br>`;
+            searchLog += `<strong>Guesses needed: ${guesses} (typical binary search)</strong><br>`;
+            searchLog += `<strong>Time for full password extraction:</strong> ~${guesses * targetPassword.length} queries × 5 seconds average = ${(guesses * targetPassword.length * 5 / 60).toFixed(1)} minutes<br>`;
+
+            document.getElementById('extractionLog').innerHTML = searchLog;
+            document.getElementById('simulationResults').classList.add('show');
+        }
+    </script>
+</body>
+</html>

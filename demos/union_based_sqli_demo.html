@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Union-based SQL Injection Demo</title>
+    <style>
+        :root {
+            --primary-color: #00d9ff;
+            --secondary-color: #0066ff;
+            --danger-color: #ff3366;
+            --success-color: #00ff88;
+            --warning-color: #ffaa00;
+            --dark-bg: #0a0e1a;
+            --darker-bg: #050810;
+            --card-bg: rgba(15, 23, 42, 0.8);
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--dark-bg) 0%, var(--darker-bg) 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 1024px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(0, 217, 255, 0.3);
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .card h2 {
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            border-bottom: 2px solid rgba(0, 217, 255, 0.2);
+            padding-bottom: 15px;
+        }
+
+        .card.vulnerable h2 {
+            color: var(--danger-color);
+            border-bottom-color: rgba(255, 51, 102, 0.2);
+        }
+
+        .card.secure h2 {
+            color: var(--success-color);
+            border-bottom-color: rgba(0, 255, 136, 0.2);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        input[type="text"],
+        select {
+            width: 100%;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 2px solid rgba(0, 217, 255, 0.2);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        input[type="text"]:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 15px rgba(0, 217, 255, 0.2);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger-color), #ff6666);
+            color: white;
+            box-shadow: 0 5px 20px rgba(255, 51, 102, 0.3);
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(255, 51, 102, 0.5);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--success-color), #00dd77);
+            color: black;
+            box-shadow: 0 5px 20px rgba(0, 255, 136, 0.3);
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0, 255, 136, 0.5);
+        }
+
+        .result-box {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(0, 217, 255, 0.2);
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .result-box.show {
+            display: block;
+        }
+
+        .result-label {
+            color: var(--warning-color);
+            font-weight: 600;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+
+        .result-content {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+            color: var(--success-color);
+            line-height: 1.4;
+        }
+
+        .example-list {
+            background: rgba(255, 170, 0, 0.1);
+            border-left: 4px solid var(--warning-color);
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+
+        .example-list h4 {
+            color: var(--warning-color);
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+        }
+
+        .example-item {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            margin: 8px 0;
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            word-break: break-all;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .explanation {
+            background: rgba(0, 217, 255, 0.1);
+            border: 1px solid rgba(0, 217, 255, 0.2);
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .explanation h3 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+
+        .explanation p {
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+
+        .vulnerability-badge {
+            display: inline-block;
+            background: rgba(255, 51, 102, 0.2);
+            border: 1px solid var(--danger-color);
+            color: var(--danger-color);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .security-badge {
+            display: inline-block;
+            background: rgba(0, 255, 136, 0.2);
+            border: 1px solid var(--success-color);
+            color: var(--success-color);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid rgba(0, 217, 255, 0.2);
+            color: var(--text-primary);
+        }
+
+        th {
+            background: rgba(0, 217, 255, 0.1);
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: rgba(0, 217, 255, 0.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔗 Union-based SQL Injection Demo</h1>
+            <p>Learn how UNION-based SQL injection attacks work and how to prevent them</p>
+        </div>
+
+        <div class="grid">
+            <!-- VULNERABLE VERSION -->
+            <div class="card vulnerable">
+                <div class="vulnerability-badge">⚠️ VULNERABLE CODE</div>
+                <h2>Vulnerable Search</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    This search function is vulnerable to UNION-based SQL injection.
+                </p>
+
+                <div class="form-group">
+                    <label>🔍 Search Products:</label>
+                    <input type="text" id="vulnSearch" placeholder="Enter product name..." autocomplete="off">
+                </div>
+
+                <button class="btn btn-danger" onclick="searchVulnerable()">
+                    💉 Perform Vulnerable Search
+                </button>
+
+                <div class="result-box" id="vulnResults">
+                    <div class="result-label">📋 SQL Query Executed:</div>
+                    <div class="result-content" id="vulnQuery"></div>
+                </div>
+
+                <div class="example-list">
+                    <h4>🎯 Union-based Attack Payloads:</h4>
+                    <div class="example-item">
+                        Laptop' UNION SELECT 1,2,3,4,5,6,7,8 --
+                    </div>
+                    <div class="example-item">
+                        ' UNION SELECT username,password,3,4,5,6,7,8 FROM users --
+                    </div>
+                    <div class="example-item">
+                        ' UNION SELECT 1,username,password,4,5,6,7,8 FROM users WHERE 1=1 --
+                    </div>
+                    <div class="example-item">
+                        ' UNION SELECT username,password,email,4,5,6,7,8 FROM users --
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECURE VERSION -->
+            <div class="card secure">
+                <div class="security-badge">✅ SECURE CODE</div>
+                <h2>Secure Search</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    This search function uses prepared statements and parameterized queries.
+                </p>
+
+                <div class="form-group">
+                    <label>🔍 Search Products:</label>
+                    <input type="text" id="secureSearch" placeholder="Enter product name..." autocomplete="off">
+                </div>
+
+                <button class="btn btn-success" onclick="searchSecure()">
+                    ✅ Perform Secure Search
+                </button>
+
+                <div class="result-box" id="secureResults">
+                    <div class="result-label">📋 SQL Query Pattern (Parameters Separated):</div>
+                    <div class="result-content" id="secureQuery"></div>
+                </div>
+
+                <div class="explanation">
+                    <h3>🛡️ Protection Method:</h3>
+                    <p>✓ Uses prepared statements with placeholders</p>
+                    <p>✓ Separates SQL logic from user data</p>
+                    <p>✓ Automatically escapes dangerous characters</p>
+                    <p>✓ Prevents UNION injection and other SQLi attacks</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- EDUCATION SECTION -->
+        <div class="card full-width" style="border-color: rgba(255, 170, 0, 0.3);">
+            <h2 style="color: var(--warning-color); border-bottom-color: rgba(255, 170, 0, 0.2);">
+                📚 How UNION-based SQL Injection Works
+            </h2>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div>
+                    <h3 style="color: var(--danger-color); margin-bottom: 15px;">❌ Vulnerable Code (PHP):</h3>
+                    <pre style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; overflow-x: auto; color: #00ff88; font-size: 0.85rem; line-height: 1.4;">$search = $_GET['search'];
+$sql = "SELECT * FROM products WHERE 
+        product_name LIKE '%$search%'";
+$result = mysqli_query($con, $sql);</pre>
+                </div>
+
+                <div>
+                    <h3 style="color: var(--success-color); margin-bottom: 15px;">✅ Secure Code (PHP):</h3>
+                    <pre style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; overflow-x: auto; color: #00ff88; font-size: 0.85rem; line-height: 1.4;">$search = $_GET['search'];
+$sql = "SELECT * FROM products WHERE 
+        product_name LIKE ?";
+$stmt = $con->prepare($sql);
+$searchTerm = "%$search%";
+$stmt->bind_param("s", $searchTerm);
+$stmt->execute();
+$result = $stmt->get_result();</pre>
+                </div>
+            </div>
+
+            <h3 style="color: var(--primary-color); margin-top: 25px; margin-bottom: 15px;">🔍 Attack Breakdown:</h3>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Step</th>
+                        <th>Vulnerable Query</th>
+                        <th>Result</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1. Original Query</td>
+                        <td><code>SELECT * FROM products WHERE product_name LIKE '%laptop%'</code></td>
+                        <td>Returns laptops</td>
+                    </tr>
+                    <tr>
+                        <td>2. UNION Injection</td>
+                        <td><code>SELECT * FROM products WHERE product_name LIKE '%' UNION SELECT * FROM users --'</code></td>
+                        <td>Also returns users table data!</td>
+                    </tr>
+                    <tr>
+                        <td>3. Column Alignment</td>
+                        <td><code>SELECT * FROM products WHERE product_name LIKE '%' UNION SELECT username,password,email,... --'</code></td>
+                        <td>Returns sensitive user data</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div style="background: rgba(0, 217, 255, 0.1); border: 1px solid rgba(0, 217, 255, 0.2); border-radius: 8px; padding: 20px; margin-top: 20px;">
+                <h3 style="color: var(--primary-color); margin-bottom: 10px;">🎓 Key Concepts:</h3>
+                <ul style="color: var(--text-secondary); line-height: 2; margin-left: 20px;">
+                    <li><strong>UNION Operator:</strong> Combines results from multiple SELECT statements</li>
+                    <li><strong>Column Matching:</strong> Both queries must have the same number and type of columns</li>
+                    <li><strong>Data Extraction:</strong> Attackers can extract data from any table in the database</li>
+                    <li><strong>Comment Syntax:</strong> -- or # are used to ignore the rest of the original query</li>
+                    <li><strong>Prepared Statements:</strong> Treat user input as data, not executable code</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- COUNTERMEASURES -->
+        <div class="card full-width" style="border-color: rgba(0, 255, 136, 0.3);">
+            <h2 style="color: var(--success-color); border-bottom-color: rgba(0, 255, 136, 0.2);">
+                🛡️ Security Countermeasures
+            </h2>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+                <div>
+                    <h3 style="color: var(--success-color); margin-bottom: 10px;">1. Prepared Statements</h3>
+                    <p style="color: var(--text-secondary); line-height: 1.6;">
+                        Use parameterized queries to separate SQL code from data. The database engine knows which part is code and which is data.
+                    </p>
+                </div>
+
+                <div>
+                    <h3 style="color: var(--success-color); margin-bottom: 10px;">2. Input Validation</h3>
+                    <p style="color: var(--text-secondary); line-height: 1.6;">
+                        Validate and sanitize user input. Check data type, length, format, and allowed characters.
+                    </p>
+                </div>
+
+                <div>
+                    <h3 style="color: var(--success-color); margin-bottom: 10px;">3. Least Privilege</h3>
+                    <p style="color: var(--text-secondary); line-height: 1.6;">
+                        Use database accounts with minimum necessary permissions. Restrict SELECT, INSERT, UPDATE access.
+                    </p>
+                </div>
+
+                <div>
+                    <h3 style="color: var(--success-color); margin-bottom: 10px;">4. ORM Frameworks</h3>
+                    <p style="color: var(--text-secondary); line-height: 1.6;">
+                        Use Object-Relational Mapping tools like Doctrine or Eloquent that abstract SQL queries.
+                    </p>
+                </div>
+
+                <div>
+                    <h3 style="color: var(--success-color); margin-bottom: 10px;">5. Error Handling</h3>
+                    <p style="color: var(--text-secondary); line-height: 1.6;">
+                        Don't expose database errors to users. Log errors securely and show generic messages.
+                    </p>
+                </div>
+
+                <div>
+                    <h3 style="color: var(--success-color); margin-bottom: 10px;">6. WAF & IDS</h3>
+                    <p style="color: var(--text-secondary); line-height: 1.6;">
+                        Deploy Web Application Firewall (WAF) and Intrusion Detection System (IDS) to monitor attacks.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simulated product database
+        const products = [
+            { id: 1, name: 'Laptop Computer', category: 'Electronics', price: 799.99, qty: 15 },
+            { id: 2, name: 'Wireless Mouse', category: 'Accessories', price: 29.99, qty: 50 },
+            { id: 3, name: 'USB-C Cable', category: 'Cables', price: 12.99, qty: 100 },
+            { id: 4, name: 'Monitor Stand', category: 'Office', price: 49.99, qty: 25 },
+            { id: 5, name: 'Keyboard', category: 'Accessories', price: 89.99, qty: 30 }
+        ];
+
+        // Simulated user database (for demonstration)
+        const users = [
+            { username: 'admin', password: 'adminpass', email: 'admin@example.com' },
+            { username: 'user1', password: 'password123', email: 'user1@example.com' }
+        ];
+
+        function searchVulnerable() {
+            const search = document.getElementById('vulnSearch').value;
+            
+            if (!search) {
+                alert('Please enter a search term');
+                return;
+            }
+
+            // Simulate vulnerable SQL query (string concatenation)
+            const query = `SELECT * FROM products WHERE product_name LIKE '%${search}%'`;
+            
+            document.getElementById('vulnQuery').textContent = query;
+            document.getElementById('vulnResults').classList.add('show');
+
+            // Check if it's a UNION injection
+            if (search.toUpperCase().includes('UNION') || search.includes("'")) {
+                const resultHtml = `
+<strong style="color: var(--danger-color);">⚠️ UNION INJECTION DETECTED!</strong><br><br>
+<strong>Original Query Would Have Been:</strong><br>
+SELECT * FROM products WHERE product_name LIKE '%${search}%'<br><br>
+<strong>Resulting Modified Query:</strong><br>
+${query}<br><br>
+<strong style="color: var(--success-color);">🚨 This query could extract users table data!</strong><br>
+Example result if injection used "' UNION SELECT username,password,email,category,price FROM users --":<br>
+${JSON.stringify(users, null, 2)}
+                `;
+                document.getElementById('vulnResults').innerHTML = '<div class="result-label">📋 Vulnerability Analysis:</div><div class="result-content">' + resultHtml + '</div>';
+            } else {
+                const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+                document.getElementById('vulnResults').innerHTML = '<div class="result-label">📋 SQL Query and Results:</div><div class="result-content">Query: ' + query + '<br><br>Results:<br>' + JSON.stringify(filtered, null, 2) + '</div>';
+            }
+        }
+
+        function searchSecure() {
+            const search = document.getElementById('secureSearch').value;
+            
+            if (!search) {
+                alert('Please enter a search term');
+                return;
+            }
+
+            // Display secure prepared statement
+            const query = `SELECT * FROM products WHERE product_name LIKE ?`;
+            const parameter = `%${search}%`;
+
+            const secureDisplay = `
+SQL Query Template (Safe):<br>
+${query}<br><br>
+<strong>Parameter (Treated as Data, Not Code):</strong><br>
+Value: ${parameter}<br><br>
+<strong>Key Point:</strong> No matter what the user enters, 
+it is treated ONLY as data, never as SQL code.<br>
+Even if input contains UNION, SELECT, etc., they are 
+escaped and treated as literal text strings.
+            `;
+
+            document.getElementById('secureQuery').innerHTML = secureDisplay;
+            document.getElementById('secureResults').classList.add('show');
+
+            // Perform the actual search
+            const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+            
+            if (filtered.length > 0) {
+                document.getElementById('secureResults').innerHTML += '<div class="result-label" style="margin-top: 20px;">📊 Search Results:</div><table><thead><tr><th>ID</th><th>Name</th><th>Category</th><th>Price</th><th>Qty</th></tr></thead><tbody>' + 
+                filtered.map(p => `<tr><td>${p.id}</td><td>${p.name}</td><td>${p.category}</td><td>$${p.price}</td><td>${p.qty}</td></tr>`).join('') +
+                '</tbody></table>';
+            } else {
+                document.getElementById('secureResults').innerHTML += '<div class="result-label" style="margin-top: 20px; color: var(--text-secondary);">No results found for your search.</div>';
+            }
+        }
+
+        // Add enter key support
+        document.getElementById('vulnSearch').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') searchVulnerable();
+        });
+
+        document.getElementById('secureSearch').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') searchSecure();
+        });
+    </script>
+</body>
+</html>
